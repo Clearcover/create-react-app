@@ -10,19 +10,18 @@
 // @remove-on-eject-end
 'use strict';
 
-var autoprefixer = require('autoprefixer');
-var webpack = require('webpack');
-var HtmlWebpackPlugin = require('html-webpack-plugin');
-var ExtractTextPlugin = require('extract-text-webpack-plugin');
-var ManifestPlugin = require('webpack-manifest-plugin');
-var InterpolateHtmlPlugin = require('react-dev-utils/InterpolateHtmlPlugin');
-var paths = require('./paths');
-var getClientEnvironment = require('./env');
-
-// @remove-on-eject-begin
-// `path` is not used after eject - see https://github.com/facebookincubator/create-react-app/issues/1174
-var path = require('path');
-// @remove-on-eject-end
+const autoprefixer = require('autoprefixer');
+const path = require('path');
+const webpack = require('webpack');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const ExtractTextPlugin = require('extract-text-webpack-plugin');
+const ManifestPlugin = require('webpack-manifest-plugin');
+const InterpolateHtmlPlugin = require('react-dev-utils/InterpolateHtmlPlugin');
+const SWPrecacheWebpackPlugin = require('sw-precache-webpack-plugin');
+const eslintFormatter = require('react-dev-utils/eslintFormatter');
+const ModuleScopePlugin = require('react-dev-utils/ModuleScopePlugin');
+const paths = require('./paths');
+const getClientEnvironment = require('./env');
 
 // Webpack uses `publicPath` to determine where the app is being served from.
 // It requires a trailing slash, or the file assets will get an incorrect path.
@@ -82,13 +81,13 @@ module.exports = {
   },
   resolve: {
     // This allows you to set a fallback for where Webpack should look for modules.
-    // We read `NODE_PATH` environment variable in `paths.js` and pass paths here.
-    // We use `fallback` instead of `root` because we want `node_modules` to "win"
-    // if there any conflicts. This matches Node resolution mechanism.
+    // We placed these paths second because we want `node_modules` to "win"
+    // if there are any conflicts. This matches Node resolution mechanism.
     // https://github.com/facebookincubator/create-react-app/issues/253
-    // We also fallback to the app's node_modules to support hoisted modules in a
-    // linked package workflow.
-    fallback: [paths.appNodeModules].concat(paths.nodePaths),
+    modules: ['node_modules', paths.appNodeModules].concat(
+      // It is guaranteed to exist because we tweak it in `env.js`
+      process.env.NODE_PATH.split(path.delimiter).filter(Boolean)
+    ),
     // These are the reasonable defaults supported by the Node ecosystem.
     // We also include JSX as a common component filename extension to support
     // some tools, although we do not recommend using it, see:
@@ -97,18 +96,16 @@ module.exports = {
     alias: {
       // Support React Native Web
       // https://www.smashingmagazine.com/2016/08/a-glimpse-into-the-future-with-react-native-for-web/
-      'react-native': 'react-native-web'
-    }
-  },
-  resolveLoader: {
-    // @remove-on-eject-begin
-    // Resolve loaders (webpack plugins for CSS, images, transpilation) from the
-    // directory of `react-scripts` itself rather than the project directory.
-    root: paths.ownNodeModules,
-    moduleTemplates: ['*-loader'],
-    // @remove-on-eject-end
-    // Fallback to any hoisted modules when dealing with linked libraries
-    fallback: paths.appNodeModules
+      'react-native': 'react-native-web',
+    },
+    plugins: [
+      // Prevents users from importing files from outside of src/ (or node_modules/).
+      // This often causes confusion because we only process files within src/ with babel.
+      // To fix this, we prevent you from importing files out of src/ -- if you'd like to,
+      // please link the files into your node_modules/ and let module-resolution kick in.
+      // Make sure your source files are compiled, as they will not be processed in any way.
+      new ModuleScopePlugin(paths.appSrc),
+    ],
   },
   module: {
     // First, run the linter.
@@ -122,10 +119,10 @@ module.exports = {
     ],
     loaders: [
       // ** ADDING/UPDATING LOADERS **
-      // The "url" loader handles all assets unless explicitly excluded.
+      // The "file" loader handles all assets unless explicitly excluded.
       // The `exclude` list *must* be updated with every change to loader extensions.
       // When adding a new loader, you must add its `test`
-      // as a new entry in the `exclude` list in the "url" loader.
+      // as a new entry in the `exclude` list in the "file" loader.
 
       // "url" loader embeds assets smaller than specified size as data URLs to avoid requests.
       // Otherwise, it acts like the "file" loader.
@@ -191,30 +188,8 @@ module.exports = {
         }
       }
       // ** STOP ** Are you adding a new loader?
-      // Remember to add the new extension(s) to the "url" loader exclusion list.
-    ]
-  },
-  // @remove-on-eject-begin
-  // Point ESLint to our predefined config.
-  eslint: {
-    // TODO: consider separate config for production,
-    // e.g. to enable no-console and no-debugger only in production.
-    configFile: path.join(__dirname, '../eslintrc'),
-    useEslintrc: false
-  },
-  // @remove-on-eject-end
-  // We use PostCSS for autoprefixing only.
-  postcss: function() {
-    return [
-      autoprefixer({
-        browsers: [
-          '>1%',
-          'last 4 versions',
-          'Firefox ESR',
-          'not ie < 9', // React doesn't support IE8 anyway
-        ]
-      }),
-    ];
+      // Remember to add the new extension(s) to the "file" loader exclusion list.
+    ],
   },
   plugins: [
     // Makes some environment variables available in index.html.
@@ -252,11 +227,11 @@ module.exports = {
     // Minify the code.
     new webpack.optimize.UglifyJsPlugin({
       compress: {
-        screw_ie8: true, // React doesn't support IE8
-        warnings: false
-      },
-      mangle: {
-        screw_ie8: true
+        warnings: false,
+        // This feature has been reported as buggy a few times, such as:
+        // https://github.com/mishoo/UglifyJS2/issues/1964
+        // We'll wait with enabling it by default until it is more solid.
+        reduce_vars: false,
       },
       output: {
         comments: false,
@@ -269,8 +244,37 @@ module.exports = {
     // to their corresponding output file so that tools can pick it up without
     // having to parse `index.html`.
     new ManifestPlugin({
-      fileName: 'asset-manifest.json'
-    })
+      fileName: 'asset-manifest.json',
+    }),
+    // Generate a service worker script that will precache, and keep up to date,
+    // the HTML & assets that are part of the Webpack build.
+    new SWPrecacheWebpackPlugin({
+      // By default, a cache-busting query parameter is appended to requests
+      // used to populate the caches, to ensure the responses are fresh.
+      // If a URL is already hashed by Webpack, then there is no concern
+      // about it being stale, and the cache-busting can be skipped.
+      dontCacheBustUrlsMatching: /\.\w{8}\./,
+      filename: 'service-worker.js',
+      logger(message) {
+        if (message.indexOf('Total precache size is') === 0) {
+          // This message occurs for every build and is a bit too noisy.
+          return;
+        }
+        console.log(message);
+      },
+      minify: true,
+      navigateFallback: publicUrl + '/index.html',
+      staticFileGlobsIgnorePatterns: [/\.map$/, /asset-manifest\.json$/],
+      // Work around Windows path issue in SWPrecacheWebpackPlugin:
+      // https://github.com/facebookincubator/create-react-app/issues/2235
+      stripPrefix: paths.appBuild.replace(/\\/g, '/') + '/',
+    }),
+    // Moment.js is an extremely popular library that bundles large locale files
+    // by default due to how Webpack interprets its code. This is a practical
+    // solution that requires the user to opt into importing specific locales.
+    // https://github.com/jmblog/how-to-optimize-momentjs-with-webpack
+    // You can remove this if you don't use Moment.js:
+    new webpack.IgnorePlugin(/^\.\/locale$/, /moment$/),
   ],
   // Some libraries import Node modules but don't use them in the browser.
   // Tell Webpack to provide empty mocks for them so importing them works.

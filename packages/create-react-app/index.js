@@ -42,12 +42,17 @@ var chalk = require('chalk');
 var validateProjectName = require("validate-npm-package-name");
 
 var currentNodeVersion = process.versions.node;
-if (currentNodeVersion.split('.')[0] < 4) {
+var semver = currentNodeVersion.split('.');
+var major = semver[0];
+
+if (major < 4) {
   console.error(
     chalk.red(
-      'You are running Node ' + currentNodeVersion + '.\n' +
-      'Create React App requires Node 4 or higher. \n' +
-      'Please update your version of Node.'
+      'You are running Node ' +
+        currentNodeVersion +
+        '.\n' +
+        'Create React App requires Node 4 or higher. \n' +
+        'Please update your version of Node.'
     )
   );
   process.exit(1);

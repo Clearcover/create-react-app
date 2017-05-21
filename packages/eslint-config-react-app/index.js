@@ -148,7 +148,6 @@ module.exports = {
     }],
     'no-with': 'warn',
     'no-whitespace-before-property': 'warn',
-    'operator-assignment': ['warn', 'always'],
     radix: 'warn',
     'require-yield': 'warn',
     'rest-spread-spacing': ['warn', 'never'],
@@ -156,35 +155,25 @@ module.exports = {
     'unicode-bom': ['warn', 'never'],
     'use-isnan': 'warn',
     'valid-typeof': 'warn',
+    'no-restricted-properties': [
+      'error',
+      // TODO: reenable once import() is no longer slow.
+      // https://github.com/facebookincubator/create-react-app/issues/2176
+      // {
+      //   object: 'require',
+      //   property: 'ensure',
+      //   message: 'Please use import() instead. More info: https://github.com/facebookincubator/create-react-app/blob/master/packages/react-scripts/template/README.md#code-splitting',
+      // },
+      {
+        object: 'System',
+        property: 'import',
+        message: 'Please use import() instead. More info: https://github.com/facebookincubator/create-react-app/blob/master/packages/react-scripts/template/README.md#code-splitting',
+      },
+    ],
 
-    // https://github.com/benmosher/eslint-plugin-import/blob/master/docs/rules/
-
-    // TODO: import rules are temporarily disabled because they don't play well
-    // with how eslint-loader only checks the file you change. So if module A
-    // imports module B, and B is missing a default export, the linter will
-    // record this as an issue in module A. Now if you fix module B, the linter
-    // will not be aware that it needs to re-lint A as well, so the error
-    // will stay until the next restart, which is really confusing.
-
-    // This is probably fixable with a patch to eslint-loader.
-    // When file A is saved, we want to invalidate all files that import it
-    // *and* that currently have lint errors. This should fix the problem.
-    // (As an exception, import/no-webpack-loader-syntax can be enabled already
-    // because it doesn't depend on whether the file exists, so this issue
-    // doesn't apply to it.)
-
-    // 'import/default': 'warn',
-    // 'import/export': 'warn',
-    // 'import/named': 'warn',
-    // 'import/namespace': 'warn',
-    // 'import/no-amd': 'warn',
-    // 'import/no-duplicates': 'warn',
-    // 'import/no-extraneous-dependencies': 'warn',
-    // 'import/no-named-as-default': 'warn',
-    // 'import/no-named-as-default-member': 'warn',
-    // 'import/no-unresolved': ['warn', { commonjs: true }],
-    // We don't support configuring Webpack using import source strings, so this
-    // is always an error.
+    // https://github.com/benmosher/eslint-plugin-import/tree/master/docs/rules
+    'import/first': 'error',
+    'import/no-amd': 'error',
     'import/no-webpack-loader-syntax': 'error',
 
     // https://github.com/yannickcr/eslint-plugin-react/tree/master/docs/rules
@@ -213,7 +202,8 @@ module.exports = {
 
     // https://github.com/gajus/eslint-plugin-flowtype
     'flowtype/define-flow-type': 'warn',
-    'flowtype/require-valid-file-annotation': 'warn',
-    'flowtype/use-flow-type': 'warn'
-  }
+    // TODO: Reenable once https://github.com/gajus/eslint-plugin-flowtype/issues/165 is fixed
+    //'flowtype/require-valid-file-annotation': 'warn',
+    'flowtype/use-flow-type': 'warn',
+  },
 };

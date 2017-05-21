@@ -46,18 +46,12 @@ function formatMessage(message) {
     lines = [
       lines[0],
       // Clean up message because "Module not found: " is descriptive enough.
-      lines[1].replace(
-        'Cannot resolve \'file\' or \'directory\' ', ''
-      ).replace(
-        'Cannot resolve module ', ''
-      ).replace(
-        'Error: ', ''
-      ),
-      // Skip all irrelevant lines.
-      // (For some reason they only appear on the client in browser.)
-      '',
-      lines[lines.length - 1] // error location is the last line
-    ]
+      lines[1]
+        .replace("Cannot resolve 'file' or 'directory' ", '')
+        .replace('Cannot resolve module ', '')
+        .replace('Error: ', '')
+        .replace('[CaseSensitivePathsPlugin] ', ''),
+    ];
   }
 
   // Cleans up syntax error messages.
