@@ -156,10 +156,8 @@ module.exports = {
             test: [/\.bmp$/, /\.gif$/, /\.jpe?g$/, /\.png$/],
             loader: require.resolve('url-loader'),
             options: {
-              importLoaders: 1,
-              modules: true,
-              camelCase: true,
-              localIdentName: '[name]__[local]___[hash:base64:5]',
+              limit: 10000,
+              name: 'static/media/[name].[hash:8].[ext]',
             },
           },
           // Process JS with Babel.
@@ -191,6 +189,9 @@ module.exports = {
                 loader: require.resolve('css-loader'),
                 options: {
                   importLoaders: 1,
+                  modules: true,
+                  camelCase: true,
+                  localIdentName: '[name]__[local]___[hash:base64:5]',
                 },
               },
               {
